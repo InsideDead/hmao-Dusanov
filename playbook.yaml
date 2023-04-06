@@ -1,0 +1,200 @@
+---
+- hosts: localhost
+  vars:
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+    ansible_user: "root"
+    ansible_password: "toor"
+    users:
+      - "Webdeveloper"
+      - "Devopsengineer"
+      - "Projectmanager"
+    passwords:
+      - Dp68tTJzYXcxVigsqodcK9Ifxgk6lwhf
+      - Rt80eN8ERk9RbBQPEFdMHEAqH0G6YJ6n
+      - 0qZTkqrTLA9ufnBlImTtwWpvO6jfxP6M
+    ssh_pub_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCo20TEayF8Y/bKgqoBiySUUeYSVZJOCRIlpMVd4tmId3pXvgbpCF01r18aXtLidoQ63YNSt+8ZxDpRAB4AB0F5JWFXL1GJXUgSzA017YNtyrxe/OETnyZAH5+vYxrlOy5WY7cPmHbtYVdjwyZ0cbGnBCDEua5omKdCX0XMcoFT6bZZtk8PmmGY1KA6WJ6+Re4dGJbeGoYJMNXtKSqUI2pIHL5hQCmQMpzkBhE0/dF3k14IYRjO92TCZBdu+X43fT5Ref8sXcr9xzRMIVXLOHKj39Ukjl59AwZ9VBt7dR0UNst0xwEtPPBdmcTS0T7bwFdq5F9jtMAq3rVclkSkMwVVy8YajzVgTq7CegdUSOOV9WUDPC2uveJDWNdbAGQYcNsRCIvPHfbscEzdkeDmphaPjmel/ydkm3XSpa9s4QQ9KMlGGUrFY51IfYiHnUSYUoGq7EaQzJ3/haM/nmYpFN/BnYoZKdjBcdmoyIOWQHvuu20IDJUV/B8FuFmGoQYLskc="
+
+  tasks:
+   - name: Add all hosts running this playbook to the done group
+     ansible.builtin.add_host:
+       hostname: '{{ item }}'
+       groups: debian
+     loop:
+     - PJD-01
+     - PJD-02
+
+   - name: add centos hosts
+     add_host:
+       hostname: '{{ item }}'
+       groups: centos
+     loop:
+     - PJC-01
+     - PJC-02
+
+- hosts: all
+  user: root
+  vars:
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+    ansible_user: "root"
+    ansible_password: "toor"
+    users:
+      - "Webdeveloper"
+      - "Devopsengineer"
+      - "Projectmanager"
+    passwords:
+      - Dp68tTJzYXcxVigsqodcK9Ifxgk6lwhf
+      - Rt80eN8ERk9RbBQPEFdMHEAqH0G6YJ6n
+      - 0qZTkqrTLA9ufnBlImTtwWpvO6jfxP6M
+    ssh_pub_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCo20TEayF8Y/bKgqoBiySUUeYSVZJOCRIlpMVd4tmId3pXvgbpCF01r18aXtLidoQ63YNSt+8ZxDpRAB4AB0F5JWFXL1GJXUgSzA017YNtyrxe/OETnyZAH5+vYxrlOy5WY7cPmHbtYVdjwyZ0cbGnBCDEua5omKdCX0XMcoFT6bZZtk8PmmGY1KA6WJ6+Re4dGJbeGoYJMNXtKSqUI2pIHL5hQCmQMpzkBhE0/dF3k14IYRjO92TCZBdu+X43fT5Ref8sXcr9xzRMIVXLOHKj39Ukjl59AwZ9VBt7dR0UNst0xwEtPPBdmcTS0T7bwFdq5F9jtMAq3rVclkSkMwVVy8YajzVgTq7CegdUSOOV9WUDPC2uveJDWNdbAGQYcNsRCIvPHfbscEzdkeDmphaPjmel/ydkm3XSpa9s4QQ9KMlGGUrFY51IfYiHnUSYUoGq7EaQzJ3/haM/nmYpFN/BnYoZKdjBcdmoyIOWQHvuu20IDJUV/B8FuFmGoQYLskc="
+
+  tasks:
+    - name: install git
+      yum:
+        name: git
+        update_cache: true
+      when: "'centos' in group_names"
+    
+    - name: install git deb
+      apt:
+        name: git
+        update_cache: yes
+      when: "'debian' in group_names"     
+
+    - name: Clone Git repository
+      git:
+        repo: https://github.com/andgabs/skill_hmao
+        dest: /skill_hmao
+        clone: yes
+        force: yes
+        update: yes
+
+    - name: Update package list and install packages centos
+      yum:
+        name: ['lynx','curl','vim','mc']
+      when: "'centos' in group_names"
+      
+    - name: Update package list and install packages centos
+      apt:
+        name: ['lynx','curl','vim','mc']
+        update_cache: true
+      when: "'debian' in group_names"
+
+    - name: Install firewalld and enable it
+      apt:        
+        name: firewalld
+      when: "'debian' in group_names"
+
+    - name: install firewalld centos
+      yum:
+        name: firewalld
+      when: "'centos' in group_names"   
+
+    - name: enable service
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Configure firewalld
+      firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - 80/tcp
+        - 8080/tcp
+        - 1022/tcp
+
+    - name: Configure SSH server
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regexp: '^#?#Port.*', line: 'Port 1022' }
+        - { regexp: '^#?#PubkeyAuthentication.*', line: 'PubkeyAuthentication yes' }
+
+    - name: Create users with passwords and ssh keys
+      vars:
+        user: "{{ item }}"
+        password: "{{ passwords[users.index(item)] }}"
+      user:
+        name: "{{ user }}"
+        password: "{{ password}}"
+        createhome: yes
+        shell: /bin/bash
+        append: yes
+      register: user_created
+      with_items: "{{ users }}"
+
+    - name: Set ssh keys for users
+      authorized_key:
+        user: "{{ item }}"
+        key: "{{ ssh_pub_key }}"
+      with_items: "{{ users }}"
+
+    - name: Install docker apt
+      apt:
+        name: docker.io
+        state: present
+      when: "'debian' in group_names"
+
+    - name: install docker package
+      yum:
+        name: docker
+        update_cache: true
+      when: "'centos' in group_names"
+
+    #- name: Install python
+    #  apt:
+    #    name: python38
+     #   state: present
+     # when: "'centos' in group_names"e
+
+   # - name: Install docker-compose
+    #  pip:
+   #     name: docker-compose
+   #     state: present
+   #   when: "'centos' in group_names"
+
+    - name: Create directory for nginx
+      file:
+        path: /skillcloud-nginx
+        state: directory
+
+    - name: Copy files for nginx
+      copy:
+        src: "/skill_hmao/{{ item }}"
+        remote_src: true
+        dest: /skillcloud-nginx/{{ item }}"
+      with_items:
+        - Dockerfile-site
+        - Dockerfile-balance
+        - index.html
+        - nginx.conf
+        
+    - name: install docker-compose
+      shell: /bin/bash /skill_hmao/docker-compose.sh     
+      
+    - name: build site:site
+      docker_image:
+        name: site
+        tag: site
+        dockerfile: /skillcloud-nginx/Dockerfile-site
+        
+    - name: build balance:balance
+      docker_image:
+        name: balance
+        tag: balance
+        dockerfile: /skillcloud-nginx/Dockerfile-balance
+        
+    #- name: Restart SSH
+    #  service:
+    #    name: ssh
+    #    state: restarted
+
+    - name: Restart firewalld
+      service:
+        name: firewalld
+        state: restarted
